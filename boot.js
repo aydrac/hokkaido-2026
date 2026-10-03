@@ -231,7 +231,7 @@
   };
   function applyLive() {
     const lv = BOOT.live; if (!lv) return;
-    D.state = Object.assign(DEF_STATE(), lv.state || {});
+    D.state = Object.assign(DEF_STATE(), lv.state || {}); D.xs = lv.xs || null; D.shape = lv.shape || null;
     if (typeof BD !== 'undefined') { const prev = JSON.stringify(BD.snap || null); BD.snap = lv.cur || null; if (prev !== JSON.stringify(BD.snap) && UI.view === 'plan' && !BD.anim && typeof birdStart === 'function') birdStart(); }
   }
   function startPoller() {
@@ -244,8 +244,10 @@
   const MASKRE = /[¥￥]\s?\d[\d,]*(?:\s*[~～–-]\s*[¥￥]?\d[\d,]*)?|TWD\s?\d[\d,]*/g;
   const mask = o => typeof o === 'string' ? o.replace(MASKRE, () => '$$$$') : Array.isArray(o) ? o.map(mask) : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, mask(v)])) : o;
   function payload() {
-    const s = D.state;
-    return JSON.stringify({ v: 1, state: { checks: s.checks || {}, edits: mask(s.edits || {}), extras: mask(s.extras || []), pack: s.pack || {}, photos: s.photos || {}, foodv: s.foodv || {}, foodr: mask(s.foodr || {}) }, cur: (typeof BD !== 'undefined' && BD.snap) || null });
+    const s = D.state, on = !!s.showAmt, mk = on ? (o => o) : mask;
+    let edits = s.edits || {};
+    if (on) { edits = JSON.parse(JSON.stringify(edits)); DAYS.forEach(d => d.items.forEach(it => { ['sum', 'note'].forEach(f => { if (typeof it[f] === 'string' && it[f].search(MASKRE) >= 0) { MASKRE.lastIndex = 0; const e = edits[it.id] = edits[it.id] || {}; if (e[f] == null) e[f] = it[f]; } MASKRE.lastIndex = 0; }); })); }
+    return JSON.stringify({ v: 1, state: { checks: s.checks || {}, edits: mk(edits), extras: mk(s.extras || []), pack: s.pack || {}, photos: s.photos || {}, foodv: s.foodv || {}, foodr: mk(s.foodr || {}), fx: s.fx, showAmt: on }, cur: (typeof BD !== 'undefined' && BD.snap) || null, xs: on ? allExp() : null, shape: on ? null : chartShape() });
   }
   const PUB = { busy: false, seen: null, changed: 0, err: '' };
   const paused = () => !!ls.get(K.pause);
