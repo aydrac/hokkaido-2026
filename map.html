@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F6F1EA">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="北海道">
+<meta name="robots" content="noindex,nofollow">
+<title>北海道路線地圖</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Jost:wght@400;500&display=swap">
+<style>
+/* 全螢幕地圖：底圖在 #world 內以 transform 縮放，地名在 #labels 以螢幕座標排列 */
+:root{--paper:#F3EEE3;--ink:#3A3833;--mute:#7A7468;--rust:#B5533C;--sun:#D9822B;--moss:#6F7F52;--card:rgba(250,247,240,.92);--line:var(--line);--field:#fff;--swoff:#D8D0C0;--credit:rgba(250,247,240,.8);--shade:transparent;--spr:none;--c-land:#F3EEE3;--c-sea:#B3C7D2;--c-town:#E7DECE;--c-wood:#BAC8A5;--c-green:#CCD7B5;--c-mn:#FBF8F1;--c-mdc:#CDBFA6;--c-mdf:#FFFDF7;--c-mjc:#C9A56A;--c-mjf:#F6DFA5;--c-railc:#5F594E;--c-natc:#9A8F7C;--c-natf:#FBF7EE;--c-loc:#A89F8E;color-scheme:light;--f-jp:'Shippori Mincho',serif;--f-en:'Jost',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#1E1C19;--ink:#ECE5D8;--mute:#A69E90;--rust:#E58A70;--sun:#E9A04F;--moss:#A3B585;--card:rgba(38,35,31,.93);--line:#3E3931;--field:#2A2723;--swoff:#4A443B;--credit:rgba(30,28,25,.8);--shade:rgba(22,20,17,.52);--spr:brightness(.9);--c-land:#2A2723;--c-sea:#2C3C47;--c-town:#342F28;--c-wood:#2E3828;--c-green:#333F2D;--c-mn:#48423A;--c-mdc:#554D41;--c-mdf:#6B6254;--c-mjc:#86703F;--c-mjf:#B3925A;--c-railc:#9A9384;--c-natc:#554D41;--c-natf:#857D6E;--c-loc:#6B6254;color-scheme:dark;}}
+:root[data-theme=dark]{--paper:#1E1C19;--ink:#ECE5D8;--mute:#A69E90;--rust:#E58A70;--sun:#E9A04F;--moss:#A3B585;--card:rgba(38,35,31,.93);--line:#3E3931;--field:#2A2723;--swoff:#4A443B;--credit:rgba(30,28,25,.8);--shade:rgba(22,20,17,.52);--spr:brightness(.9);--c-land:#2A2723;--c-sea:#2C3C47;--c-town:#342F28;--c-wood:#2E3828;--c-green:#333F2D;--c-mn:#48423A;--c-mdc:#554D41;--c-mdf:#6B6254;--c-mjc:#86703F;--c-mjf:#B3925A;--c-railc:#9A9384;--c-natc:#554D41;--c-natf:#857D6E;--c-loc:#6B6254;color-scheme:dark;}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);overflow:hidden;font-family:var(--f-jp)}
+#stage{position:fixed;inset:0;touch-action:none;cursor:grab;overflow:hidden}
+#stage.drag{cursor:grabbing}
+#world{position:absolute;left:0;top:0;width:4096px;height:3072px;transform-origin:0 0}
+#world.mv{will-change:transform}
+#world img{position:absolute;display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#doo{opacity:0;transition:opacity .35s}
+#night{position:absolute;left:0;top:0;width:4096px;height:3072px;background:var(--shade);pointer-events:none}   /* 深色：底圖上蓋一層半透明深色（比 filter 省記憶體）*/
+#frame{position:absolute;border:3px dashed var(--sun);border-radius:40px;transition:opacity .35s;pointer-events:none}
+#labels{position:absolute;inset:0;pointer-events:none}
+.lb[hidden],.it[hidden]{display:none}   /* .it 有 display:flex，要明寫 hidden 才會真的隱藏（否則離場的圖示會殘留）*/
+.lb{position:absolute;left:0;top:0;white-space:nowrap;display:flex;align-items:center;gap:5px;transform-origin:0 50%;
+  text-shadow:0 0 3px var(--paper),0 0 3px var(--paper),0 0 6px var(--paper)}
+.lb i{display:block;width:6px;height:6px;border-radius:50%;background:var(--rust);flex:none}
+.lb.region{font-size:18px;font-weight:700;letter-spacing:.25em}
+.lb.region i{display:none}
+.lb.area{font-size:16px;font-weight:700;letter-spacing:.08em}
+.lb.area i{background:var(--ink);width:5px;height:5px}
+.lb.spot{font-size:14px;font-weight:700}
+.lb.stay{font-size:14px;color:var(--rust);font-weight:700}
+.lb.stay i{border-radius:1px;transform:rotate(45deg);background:var(--sun)}
+.lb.mtn{font-size:13px;color:var(--moss);letter-spacing:.12em}
+.lb.mtn i{display:none}
+.lb.big{font-size:21px}
+.it{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;transform-origin:50% 100%;pointer-events:none}
+.it img{display:block;object-fit:contain;filter:drop-shadow(0 1px 0 rgba(58,56,51,.12)) var(--spr)}
+.it span{position:absolute;left:50%;top:100%;translate:-50% 0;scale:var(--ls,1);transform-origin:50% 0;font-size:14px;font-weight:700;white-space:nowrap;margin-top:1px;text-shadow:0 0 3px var(--paper),0 0 3px var(--paper),0 0 6px var(--paper)}
+.it.stay span{color:var(--rust)}
+.it.nolab span{visibility:hidden}   /* 太擠時只顯示圖、不顯示地名 → 圖下方一個小點，點圖示才顯示名稱 */
+.it.nolab::after{content:'';position:absolute;left:50%;top:100%;width:6px;height:6px;margin:1px 0 0 -3px;border-radius:50%;background:var(--rust);box-shadow:0 0 0 1.5px var(--paper);scale:var(--ls,1)}
+.it.peek{z-index:4}.it.peek::after{display:none}
+.it.nolab.peek span{visibility:visible;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:2px 9px;margin-top:3px;text-shadow:none;box-shadow:0 3px 10px rgba(58,56,51,.16);animation:peek .22s ease-out}
+@keyframes peek{from{opacity:0;translate:-50% -4px}to{opacity:1;translate:-50% 0}}
+.it.land span{font-size:14px}
+#me{position:absolute;left:0;top:0;width:44px;height:44px;z-index:5;transform-origin:50% 100%;cursor:pointer;touch-action:manipulation}
+#me img{position:relative;width:44px;height:44px;object-fit:contain;display:block}
+#me i{position:absolute;left:50%;bottom:-2px;width:34px;height:12px;margin-left:-17px;border-radius:50%;background:rgba(217,130,43,.35);animation:ring 2.2s ease-out infinite}
+#me.hop img{animation:hop .52s cubic-bezier(.3,.9,.4,1)}
+@keyframes ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+@keyframes hop{0%{transform:translateY(0)}35%{transform:translateY(-16px) scale(1.05)}70%{transform:translateY(0) scale(1.08,.92)}100%{transform:none}}
+#me:focus-visible{outline:2px solid var(--sun);outline-offset:3px;border-radius:50%}
+.hud .g{font-size:11px;color:var(--mute);max-width:52vw}
+@media (prefers-reduced-motion:reduce){#me i{animation:none}}
+.hud{position:fixed;left:16px;top:calc(env(safe-area-inset-top,0px) + 14px);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:grid;gap:2px;min-width:0}
+.hud .t{font-size:11px;letter-spacing:.2em;color:var(--sun);font-family:var(--f-en)}
+.hud .v{font-size:15px;font-weight:700}
+.hud .z{font-family:var(--f-en);font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.ctl{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);display:grid;gap:8px}
+.ctl button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font:500 20px var(--f-en);cursor:pointer}
+.ctl button.txt{font:700 12px var(--f-jp)}
+.ctl button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+.lv{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);display:flex;gap:6px}
+.lv span{font:500 11px var(--f-en);padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--mute)}
+.lv span.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+@media (prefers-reduced-motion:reduce){#doo,#frame{transition:none}}
+.sim{position:fixed;left:16px;right:76px;bottom:calc(env(safe-area-inset-bottom,0px) + 54px);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:500 12px var(--f-en)}
+.sim b{font:700 10px var(--f-jp);color:var(--sun);letter-spacing:.1em;white-space:nowrap}
+.sim select,.sim button{font:500 12px var(--f-en);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;height:30px;padding:0 6px}
+.sim button{min-width:34px;cursor:pointer;white-space:nowrap}.sim button.txt{font:700 11px var(--f-jp)}.sim button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sim input{order:9;flex:1 1 100%;margin:2px 0 0;accent-color:var(--sun)}
+.sim output{margin-left:auto}
+.sim output{font-variant-numeric:tabular-nums;min-width:34px;color:var(--mute)}
+.sim :focus-visible{outline:2px solid var(--sun);outline-offset:1px}
+.rt{--c:#888}.rt path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rt .halo{stroke:var(--paper);stroke-width:var(--h);opacity:.85}
+.rt .ln{stroke:var(--c);stroke-width:var(--w);stroke-dasharray:var(--dash)}
+.rt circle{fill:var(--paper);stroke:var(--c);stroke-width:calc(var(--w) * .7)}.rt circle.end{fill:var(--c)}
+.rt{transition:opacity .25s}.rt.dim{opacity:.14}
+.lyb{position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 14px);height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:700 12px var(--f-jp);cursor:pointer}
+.lyb[aria-expanded=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lyp[hidden]{display:none}
+.lyp{position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 58px);width:min(260px,calc(100% - 32px));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;box-shadow:0 6px 20px rgba(58,56,51,.12);z-index:6}
+.lyp .row{display:flex;align-items:center;justify-content:space-between;font:700 13px var(--f-jp)}
+.lyp .row small{font:500 11px var(--f-jp);color:var(--mute);display:block}
+.sw{width:42px;height:24px;border-radius:999px;border:0;background:var(--swoff);position:relative;cursor:pointer;flex:none}
+.sw::after{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+.sw[aria-checked=true]{background:var(--moss)}.sw[aria-checked=true]::after{left:21px}.sw:disabled{opacity:.45;cursor:default}
+#lyDays{display:grid;grid-template-columns:repeat(2,1fr);gap:5px}#lyDays.off{opacity:.4}
+#lyDays button{display:flex;align-items:center;gap:5px;font:700 11px var(--f-en);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:5px 7px;cursor:pointer}
+#lyDays button[data-d="0"]{grid-column:1/-1;justify-content:center;font-family:var(--f-jp)}
+#lyDays button i{width:14px;height:4px;border-radius:2px;flex:none}#lyDays button small{font:500 10px var(--f-en);color:var(--mute);margin-left:auto}
+#lyDays button[aria-pressed=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.rd path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rd .expC{stroke:#2E5A40;stroke-width:calc(var(--k) * 4.6)}.rd .expF{stroke:#8CC49A;stroke-width:calc(var(--k) * 2.6)}
+.rd .natC{stroke:var(--c-natc);stroke-width:calc(var(--k) * 3.2)}.rd .natF{stroke:var(--c-natf);stroke-width:calc(var(--k) * 1.8)}
+.rd .loc{stroke:var(--c-loc);stroke-width:calc(var(--k) * 1.3)}
+.rd .jrC{stroke:var(--ink);stroke-width:calc(var(--k) * 2.8);opacity:.8}.rd .jrF{stroke:var(--paper);stroke-width:calc(var(--k) * 1.3);stroke-dasharray:calc(var(--k) * 6) calc(var(--k) * 6)}
+.lb.shield i{display:none}.lb.shield span{font:700 12px var(--f-en);color:#fff;border-radius:4px;padding:1px 5px;letter-spacing:.02em;text-shadow:none}
+.lb.shield.exp span{background:#2F7A55;font-family:var(--f-jp)}.lb.shield.nat span{background:#2F5E9E;border-radius:8px 8px 10px 10px}.lb.shield.jr span{background:none;color:var(--ink);font:700 12px var(--f-jp);padding:0}
+.lyp :focus-visible,.lyb:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+/* ×160 城市圖（札幌、小樽）：--p＝1 螢幕像素（tile 內部單位） */
+.city path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.city .land{fill:var(--c-land)}.city .sea,.city .water{fill:var(--c-sea)}.city .town{fill:var(--c-town)}.city .wood{fill:var(--c-wood)}.city .green{fill:var(--c-green)}
+.city .river{stroke:var(--c-sea);stroke-width:calc(var(--p) * 6)}.city .stream{stroke:var(--c-sea);stroke-width:calc(var(--p) * 1.6)}
+.city .mn{stroke:var(--c-mn);stroke-width:calc(var(--p) * 1.2)}
+.city .md.c{stroke:var(--c-mdc);stroke-width:calc(var(--p) * 3.8)}.city .md.f{stroke:var(--c-mdf);stroke-width:calc(var(--p) * 2.3)}
+.city .mj.c{stroke:var(--c-mjc);stroke-width:calc(var(--p) * 5.2)}.city .mj.f{stroke:var(--c-mjf);stroke-width:calc(var(--p) * 3.4)}
+.city .mw.c{stroke:#2E5A40;stroke-width:calc(var(--p) * 5.8)}.city .mw.f{stroke:#8CC49A;stroke-width:calc(var(--p) * 3.6)}
+.city .rail.c{stroke:var(--c-railc);stroke-width:calc(var(--p) * 3.4)}.city .rail.f{stroke:var(--c-land);stroke-width:calc(var(--p) * 1.7);stroke-dasharray:calc(var(--p) * 5) calc(var(--p) * 5)}
+#autCity path{stroke-width:var(--dot)}
+.credit{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 3px);font:500 9px var(--f-en);color:var(--mute);background:var(--credit);padding:0 4px;border-radius:3px}
+.credit a{color:inherit}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 120px);transform:translateX(-50%);background:var(--ink);color:var(--paper);font:700 12px var(--f-jp);padding:8px 14px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:.92}
+/* 時間風景：花火 18–24、星空 23–05、海洋生物 05–18（日本時間） */
+#sky{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#sky .tint{position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,18,42,.72),rgba(14,20,44,.5) 50%,rgba(14,20,44,.42));opacity:0;transition:opacity .8s}
+#sky.night .tint{opacity:1}
+:root[data-theme=dark] #sky .tint{background:linear-gradient(180deg,rgba(6,9,24,.6),rgba(6,9,24,.3) 60%,rgba(6,9,24,.2))}
+#sky .star,#sky .moon,#sky .cloud{position:absolute;opacity:0;transition:opacity .8s}
+#sky.night .star{opacity:1;animation:tw var(--d) ease-in-out infinite alternate;animation-delay:var(--dl)}
+#sky.night .moon{opacity:1}#sky.night .cloud{opacity:.75}
+#sky .cloud{animation:drift var(--d) linear infinite;animation-delay:var(--dl);filter:brightness(.72) saturate(.7)}
+@keyframes tw{from{opacity:.25;transform:scale(.7)}to{opacity:1;transform:scale(1.1)}}
+@keyframes drift{from{translate:-140px 0}to{translate:calc(100vw + 40px) 0}}
+#sky canvas{position:absolute;inset:0;width:100%;height:100%}
+#sky.eve .tint{opacity:1}
+.it .wv{position:relative;clip-path:inset(-400% -120% 0 -120%)}   /* 下緣＝海面：沉下去的部分被切掉 */
+.wv.fl img{animation:fl var(--dur) ease-in-out infinite alternate;animation-delay:var(--dl);transform-origin:50% 90%}
+@keyframes fl{0%{transform:translateY(12%) rotate(-4deg)}100%{transform:translateY(-6%) rotate(4deg)}}
+.wv.jp img{animation:jp var(--dur) linear infinite;animation-delay:var(--dl);transform-origin:50% 60%}
+@keyframes jp{0%{transform:translate(0,105%)}8%{transform:translate(0,38%)}16%{transform:translate(0,46%)}24%{transform:translate(0,36%)}
+  30%{transform:translate(-12%,30%) rotate(-12deg)}38%{transform:translate(0,-85%) rotate(-24deg)}46%{transform:translate(22%,-70%) rotate(16deg)}
+  54%{transform:translate(38%,20%) rotate(42deg)}60%{transform:translate(44%,115%) rotate(55deg)}100%{transform:translate(44%,115%) rotate(55deg)}}
+.it .rip{position:absolute;left:18%;right:18%;bottom:-3px;height:8px;border:2px solid #9DB3C3;border-radius:50%;opacity:0;animation:rip var(--dur) linear infinite;animation-delay:var(--dl)}
+@keyframes rip{0%{opacity:0;transform:scale(.4)}6%{opacity:.9;transform:scale(.6)}10%,28%{opacity:.7;transform:scale(1)}34%{opacity:0;transform:scale(1.6)}
+  56%{opacity:0;transform:scale(.4)}59%{opacity:1;transform:scale(.6)}70%{opacity:0;transform:scale(1.8)}100%{opacity:0}}
+#sky.city canvas{display:none}#sky.city.eve:not(.night) .tint{opacity:0}   /* ×160 市區不放花火 */
+.bear circle{stroke-width:var(--bw)}.bear .n{fill:#C0392B;stroke:#fff}.bear .n.old{fill:#E08A3C}.bear .n.t{fill:#fff;stroke:#C0392B}.bear .n.old.t{stroke:#E08A3C}
+.bear .l{fill:rgba(122,82,48,.22);stroke:#7A5230;stroke-dasharray:var(--bd)}.bear .l.t{fill:none}
+.bear .pw{fill:#fff;pointer-events:none}
+#bearTip{position:fixed;left:0;top:0;z-index:7;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:5px 10px;font:700 12px var(--f-jp);color:var(--ink);box-shadow:0 3px 10px rgba(58,56,51,.16);pointer-events:none;white-space:nowrap;translate:-50% calc(-100% - 10px)}
+#bearTip small{display:block;font:500 10px var(--f-jp);color:var(--mute)}
+.lyp .bk{display:flex;flex-wrap:wrap;gap:4px 10px;font:500 11px var(--f-jp);color:var(--mute)}.lyp .bk i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+.lyp .bk a{color:var(--rust)}#bearNear{font:700 11px var(--f-jp);color:#C0392B}#bearNear:empty{display:none}
+@media (prefers-reduced-motion:reduce){#sky .star,#sky .cloud,.wv img,.it .rip{animation:none!important}.wv.jp img{transform:translateY(40%)}}
+.embed .sim{display:none}
+</style>
+
+<div id="stage" aria-label="北海道地圖，可拖曳與縮放">
+  <div id="world">
+    <img id="all" width="4096" height="3072" alt="" decoding="async">
+    <img id="doo" alt="" decoding="async">
+    <div id="night"></div>
+    <div id="frame"></div>
+  </div>
+  <div id="labels"></div>
+  <div id="me" role="button" tabindex="0" aria-label="目前位置（點一下牠會跳）"><i></i><img src="map/s/bird_idle.webp" width="44" height="44" alt=""></div>
+</div>
+<div id="sky" aria-hidden="true"><div class="tint"></div></div>
+<div class="hud" aria-live="polite"><span class="t">HOKKAIDO</span><span class="v" id="lvName">全道</span><span class="z" id="zoomTx">×1.0</span><span class="g" id="geoTx"></span></div>
+<button type="button" class="lyb" id="lyBtn" aria-expanded="false" aria-controls="lyPanel">圖層</button>
+<div class="lyp" id="lyPanel" hidden>
+  <div class="row"><span>行程路線<small>每天一色，依時間順序連線</small></span><button type="button" class="sw" id="lyRoute" role="switch" aria-label="行程路線"></button></div>
+  <div id="lyDays" aria-label="只看某一天"></div>
+  <div class="row"><span>道路・JR<small>高速道路・國道・JR 路線</small></span><button type="button" class="sw" id="lyRoad" role="switch" aria-label="道路・JR"></button></div>
+  <div class="row"><span>秋色風貌<small>楓紅丘陵・大雪山初雪・紅葉樹群・銀杏街道</small></span><button type="button" class="sw" id="lyAut" role="switch" aria-label="秋色風貌"></button></div>
+  <div class="row"><span>時間風景<small>18–24 花火・23–05 星空・05–18 海洋生物</small></span><button type="button" class="sw" id="lyTod" role="switch" aria-label="時間風景"></button></div>
+  <div class="row"><span>深色模式<small>預設關閉</small></span><button type="button" class="sw" id="lyDark" role="switch" aria-label="深色模式"></button></div>
+  <div class="row"><span>熊出沒<small>近 3 個月通報＋去年同期（札幌）</small></span><button type="button" class="sw" id="lyBear" role="switch" aria-label="熊出沒"></button></div>
+  <div class="bk"><span><i style="background:#C0392B"></i>30 天內</span><span><i style="background:#E08A3C"></i>31–90 天</span><span><i style="background:rgba(122,82,48,.3);border:1px dashed #7A5230"></i>去年 10–11 月</span><span>空心＝痕跡</span></div>
+  <div id="bearNear"></div>
+  <div class="bk">最新：<a href="https://higumap.info/recent" target="_blank" rel="noopener">ひぐまっぷ</a><a href="https://www.city.sapporo.jp/kurashi/animal/choju/kuma/syutsubotsu/" target="_blank" rel="noopener">札幌市</a><a href="https://www.city.otaru.lg.jp/" target="_blank" rel="noopener">小樽市</a></div>
+</div>
+<div class="sim" aria-label="時間模擬（預覽用）"><b>模擬</b><select id="simDay" aria-label="日期"></select><input type="range" id="simT" min="0" max="1435" step="5" aria-label="時間"><output id="simTx"></output><button type="button" id="simPlay" aria-label="播放">▶</button><button type="button" class="txt" id="simNow">現在</button></div>
+<div class="credit" id="credit" hidden>街道骨架 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+<div class="toast" id="toast" role="status"></div>
+<div id="bearTip" hidden></div>
+<div class="lv" id="lvChips"><span>×1 全道</span><span>×5.5 道央</span><span>×40 景點</span><span>×160 市區</span></div>
+<div class="ctl">
+  <button type="button" id="zin" aria-label="放大">＋</button>
+  <button type="button" id="zout" aria-label="縮小">－</button>
+  <button type="button" class="txt" id="goMe" aria-label="移到目前位置">我</button>
+  <button type="button" class="txt" id="goOta" aria-label="移到小樽市區">小樽</button>
+  <button type="button" class="txt" id="goSpr" aria-label="移到札幌市區">札幌</button>
+  <button type="button" class="txt" id="goDoo" aria-label="移到道央">道央</button>
+  <button type="button" class="txt" id="reset" aria-label="回到全道">全道</button>
+</div>
+
+<div id="boot"></div>
+<script src="boot.js"></script>
+<script>BOOT.start('map');</script>
+
+</body>
+</html>
