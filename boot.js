@@ -133,8 +133,8 @@
 .bt-eb{font:500 11px Inter,system-ui,sans-serif;letter-spacing:.24em;color:#B5533C}
 .bt-c h1{font:700 26px 'Noto Serif TC',serif;margin:0 0 4px}
 .bt-c h2{font:700 19px 'Noto Serif TC',serif;margin:0}
-.bt-c p{margin:0;font-size:14px;line-height:1.7;color:#5E564D}
-.bt-c label{font-size:13px;color:#5E564D;display:flex;flex-direction:column;gap:6px}
+.bt-c p{margin:0;font-size:.875rem;line-height:1.7;color:#5E564D}
+.bt-c label{font-size:.8125rem;color:#5E564D;display:flex;flex-direction:column;gap:6px}
 .bt-c input[type=password],.bt-c input[type=text]{font:16px Inter,system-ui,sans-serif;padding:12px 14px;border:1px solid #D8CFC2;border-radius:12px;background:#fff;color:#2B2622;width:100%;box-sizing:border-box}
 .bt-c button{font:600 15px 'Noto Serif TC',serif;padding:13px 16px;border-radius:12px;border:0;background:#2B2622;color:#F6F1EA;cursor:pointer}
 .bt-c button.sub{background:transparent;color:#5E564D;border:1px solid #D8CFC2}
@@ -147,10 +147,10 @@
 .ghst button.warn{background:rgba(181,83,60,.9)}
 .ghm{display:flex;flex-direction:column;gap:10px;padding:4px 0 8px}
 .ghm button{text-align:left}
-.ghm p{margin:0;font-size:13px;color:var(--mute,#7A7468)}
+.ghm p{margin:0;font-size:.8125rem;color:var(--mute,#7A7468)}
 .ghsave dl{margin:0 0 12px}
 .ghsave .row{display:flex;gap:8px;flex-wrap:wrap}
-.ghsave .msg{font-size:13px;color:var(--mute,#7A7468);margin:10px 0 0;white-space:pre-line}`;
+.ghsave .msg{font-size:.8125rem;color:var(--mute,#7A7468);margin:10px 0 0;white-space:pre-line}`;
   const box = () => { let b = document.getElementById('boot'); if (!b) { b = document.createElement('div'); b.id = 'boot'; document.body.appendChild(b); } b.hidden = false; return b; };
   const hideBox = () => { const b = document.getElementById('boot'); if (b) b.hidden = true; };
   const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -161,6 +161,13 @@
   const BOOT = window.BOOT = { owner: false, page: 'app', live: null, src: null, ph: id => PH.url(id), tokBad: !!ls.get(K.tokbad) };
   BOOT.liveState = () => BOOT.owner ? ((ls.get(K.data) || {}).state || {}) : ((BOOT.live && BOOT.live.state) || {});
 
+  try {
+    if (navigator.maxTouchPoints > 0 && window.CSS && CSS.supports('font', '-apple-system-body')) {
+      const p = document.createElement('div'); p.style.cssText = 'font:-apple-system-body;position:absolute;visibility:hidden'; p.textContent = 'a';
+      document.documentElement.appendChild(p); const f = parseFloat(getComputedStyle(p).fontSize) || 17; p.remove();
+      document.documentElement.style.setProperty('--fs', Math.min(2.6, Math.max(.8, f / 17)).toFixed(3));
+    }
+  } catch (e) {}
   BOOT.start = async page => {
     BOOT.page = page;
     const st = document.createElement('style'); st.textContent = STYLE; document.head.appendChild(st);
@@ -304,7 +311,7 @@
       const body = main.querySelector('.ibody'); if (!body || body.querySelector('.ghsave')) return;
       body.insertAdjacentHTML('beforeend', `<section class="icard ghsave"><header class="icard-h"><h2>資料保存</h2><span>バックアップ</span></header>
         <dl class="kv"><dt>上次備份</dt><dd class="num">${fmtT(ls.get(K.bak))}</dd><dt>上次封存</dt><dd class="num">${fmtT(ls.get(K.arc))}</dd></dl>
-        <p class="faint" style="font-size:13px;margin:0 0 12px">匯出備份會存成一個檔案（含照片），私密資料仍保持加密；封存會把全部紀錄用私密密碼加密後存到 GitHub。</p>
+        <p class="faint" style="font-size:.8125rem;margin:0 0 12px">匯出備份會存成一個檔案（含照片），私密資料仍保持加密；封存會把全部紀錄用私密密碼加密後存到 GitHub。</p>
         <div class="row"><button class="btn" data-gh="exp">匯出備份</button><button class="btn" data-gh="imp">匯入備份</button><button class="btn" data-gh="arc">封存旅程</button></div>
         <input type="file" accept=".json,application/json" hidden data-gh="file"><p class="msg" data-gh="msg"></p></section>`);
       const c = body.querySelector('.ghsave'), msg = t => { c.querySelector('[data-gh=msg]').textContent = t; };
@@ -371,7 +378,7 @@
   }
   function archiveSheet() {
     openSheet(sheetHead('封存旅程', 'アーカイブ') + `<div class="ghm"><p>把全部紀錄（行程修改、記錄、花費、照片、私密資料）用私密密碼加密後存到 GitHub，可以封存很多次，每次都會另存一份。</p>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px">私密密碼<input type="password" data-a="pw" style="font-size:16px;padding:10px 12px;border:1px solid var(--line,#ddd);border-radius:10px"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:.8125rem">私密密碼<input type="password" data-a="pw" style="font-size:1rem;padding:10px 12px;border:1px solid var(--line,#ddd);border-radius:10px"></label>
       <button class="btn" data-a="go">開始封存</button><p data-a="msg"></p></div>`, s => {
       const m = t => { s.querySelector('[data-a=msg]').textContent = t; };
       s.querySelector('[data-a=go]').onclick = async e => {
